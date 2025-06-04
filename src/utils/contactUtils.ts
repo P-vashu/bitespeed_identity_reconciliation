@@ -1,4 +1,3 @@
-// import { PrismaClient } from '../generated/prisma'
 import { PrismaClient } from '@prisma/client'
 
 
@@ -15,7 +14,7 @@ export const handleIdentify = async ({
     throw new Error('At least one of email or phoneNumber must be provided.');
   }
 
-  // Step 1: Fetch all contacts matching email or phone
+  // Fetch all contacts matching email or phone
   const matchingContacts = await prisma.contact.findMany({
     where: {
       OR: [
@@ -26,7 +25,7 @@ export const handleIdentify = async ({
   });
 
   if (matchingContacts.length === 0) {
-    // Step 2a: No existing contact — create new primary
+    // No existing contact — create new primary
     const newContact = await prisma.contact.create({
       data: {
         email,
@@ -43,12 +42,12 @@ export const handleIdentify = async ({
     };
   }
 
-  // Step 2b: Contacts exist — identify the primary contact
+  // Contacts exist — identify the primary contact
   const allContactIds = new Set<number>();
   const emails = new Set<string>();
   const phones = new Set<string>();
 
-  // Step 3: Find all related contacts (multi-level linking)
+  // Find all related contacts (multi-level linking)
   const exploreLinkedContacts = async (start: number[]): Promise<any[]> => {
     const visited = new Set<number>();
     const result: any[] = [];
@@ -85,14 +84,14 @@ export const handleIdentify = async ({
   const allContacts = [...linkedContacts, ...matchingContacts];
   const uniqueContacts = Array.from(new Map(allContacts.map(c => [c.id, c])).values());
 
-  // Step 4: Determine primary (oldest contact)
+  // Determine primary (oldest contact)
   const primaryContact = uniqueContacts.reduce((oldest, curr) => {
     return curr.createdAt < oldest.createdAt ? curr : oldest;
   });
 
   const primaryId = primaryContact.linkPrecedence === 'primary' ? primaryContact.id : primaryContact.linkedId!;
 
-  // Step 5: Create secondary if new data introduced
+  // Create secondary if new data introduced
   const knownEmails = uniqueContacts.map(c => c.email).filter(Boolean);
   const knownPhones = uniqueContacts.map(c => c.phoneNumber).filter(Boolean);
 
@@ -112,7 +111,7 @@ export const handleIdentify = async ({
     uniqueContacts.push(newSecondary);
   }
 
-  // Step 6: Update any conflicting primaries to secondary
+  // Update any conflicting primaries to secondary
   for (const contact of uniqueContacts) {
     if (contact.id !== primaryId && contact.linkPrecedence === 'primary') {
       await prisma.contact.update({
@@ -125,7 +124,7 @@ export const handleIdentify = async ({
     }
   }
 
-  // Step 7: Build response
+  // Build response
   const finalContacts = await prisma.contact.findMany({
     where: {
       OR: [
@@ -154,28 +153,3 @@ export const handleIdentify = async ({
     secondaryContactIds: secondaryIds,
   };
 };
-
-// import { PrismaClient } from '../generated/prisma'
-
-
-// const prisma = new PrismaClient();
-
-// export const handleIdentify = async ({
-//   email,
-//   phoneNumber,
-// }: {
-//   email?: string;
-//   phoneNumber?: string;
-// }) => {
-//   // 1. Search all contacts with matching email OR phoneNumber
-//   // 2. Identify primary and related secondaries
-//   // 3. Create new contact if needed
-//   // 4. Build and return the response structure
-
-//   return {
-//     primaryContatctId: 1,
-//     emails: [email],
-//     phoneNumbers: [phoneNumber],
-//     secondaryContactIds: [],
-//   };
-// };
